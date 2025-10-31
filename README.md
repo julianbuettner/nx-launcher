@@ -33,7 +33,7 @@ complete \
 # Bash
 ```bash
 # Append to ~/.bashrc
-alias fnx="npx nx run $(nx-launcher | fzf)"
+alias fnx='npx nx run $(nx-launcher | fzf)'
 ```
 
 
