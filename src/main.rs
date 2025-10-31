@@ -105,17 +105,13 @@ fn parse_and_print_project_json(path: &Path) {
 
     let project_name = &project.name;
 
-    // Iterate through all targets
     for (target_name, target) in &project.targets {
-        // Check if this target has configurations
         if target.configurations.is_empty() {
-            // If no configurations, skip this target (or we could print project:target with empty config)
-            continue;
-        }
-
-        // Iterate through all configurations for this target
-        for configuration_name in target.configurations.keys() {
-            println!("{}:{}:{}", project_name, target_name, configuration_name);
+            println!("{}:{}", project_name, target_name);
+        } else {
+            for configuration_name in target.configurations.keys() {
+                println!("{}:{}:{}", project_name, target_name, configuration_name);
+            }
         }
     }
 }
