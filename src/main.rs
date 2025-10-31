@@ -21,7 +21,7 @@ fn main() {
     // Step 1: Find the git root
     let current_dir = std::env::current_dir().expect("Failed to get current directory");
     let git_root = find_git_root(&current_dir);
-    
+
     match git_root {
         Some(root) => {
             // Step 2: Recursively search for project.json files and parse them
@@ -31,7 +31,10 @@ fn main() {
             }
         }
         None => {
-            eprintln!("Error: No .git directory found. Starting from: {}", current_dir.display());
+            eprintln!(
+                "Error: No .git directory found. Starting from: {}",
+                current_dir.display()
+            );
             std::process::exit(1);
         }
     }
@@ -40,13 +43,13 @@ fn main() {
 /// Walk up the directory tree to find the .git directory
 fn find_git_root(start_path: &Path) -> Option<PathBuf> {
     let mut current = start_path.to_path_buf();
-    
+
     loop {
         let git_dir = current.join(".git");
         if git_dir.exists() {
             return Some(current);
         }
-        
+
         // Move to parent directory
         match current.parent() {
             Some(parent) => current = parent.to_path_buf(),
@@ -56,39 +59,29 @@ fn find_git_root(start_path: &Path) -> Option<PathBuf> {
 }
 
 /// Recursively search for project.json files and parse them
+/// Respects .gitignore patterns
 fn find_and_parse_project_json_files(root: &Path) -> std::io::Result<()> {
-    walk_and_parse_directory(root, root)
-}
+    let mut walker = ignore::WalkBuilder::new(root);
+    walker.git_ignore(true).git_exclude(true);
 
-/// Recursively walk a directory and parse project.json files
-fn walk_and_parse_directory(current: &Path, root: &Path) -> std::io::Result<()> {
-    let entries = fs::read_dir(current)?;
-    
-    for entry in entries {
-        let entry = entry?;
-        let path = entry.path();
-        
-        // Check if it's a directory
-        if path.is_dir() {
-            // Skip .git directory and other hidden directories that start with .
-            if let Some(name) = path.file_name() {
-                if name.to_string_lossy().starts_with('.') {
-                    continue;
+    for result in walker.build() {
+        match result {
+            Ok(entry) => {
+                let path = entry.path();
+
+                // Check if this is a project.json file
+                if let Some(file_name) = path.file_name() {
+                    if file_name == "project.json" {
+                        parse_and_print_project_json(path);
+                    }
                 }
             }
-            
-            // Recursively walk subdirectories
-            walk_and_parse_directory(&path, root)?;
-        }
-        
-        // Check if the current entry is a project.json file
-        if let Some(file_name) = path.file_name() {
-            if file_name == "project.json" {
-                parse_and_print_project_json(&path);
+            Err(err) => {
+                eprintln!("Warning: Error walking directory: {}", err);
             }
         }
     }
-    
+
     Ok(())
 }
 
@@ -101,7 +94,7 @@ fn parse_and_print_project_json(path: &Path) {
             return;
         }
     };
-    
+
     let project: ProjectJson = match serde_json::from_str(&content) {
         Ok(project) => project,
         Err(e) => {
@@ -109,9 +102,9 @@ fn parse_and_print_project_json(path: &Path) {
             return;
         }
     };
-    
+
     let project_name = &project.name;
-    
+
     // Iterate through all targets
     for (target_name, target) in &project.targets {
         // Check if this target has configurations
@@ -119,7 +112,7 @@ fn parse_and_print_project_json(path: &Path) {
             // If no configurations, skip this target (or we could print project:target with empty config)
             continue;
         }
-        
+
         // Iterate through all configurations for this target
         for configuration_name in target.configurations.keys() {
             println!("{}:{}:{}", project_name, target_name, configuration_name);
